@@ -7,7 +7,8 @@
             "emoji": 1,
             "subgroup": "",
             "prefix": "",
-            "User-Agent":"v2rayng"
+            "ex-node-name": "网址|流量|过期", //Filter nodes containing keywords
+            "User-Agent":"sing-box"
         },
         {
             "url": "URL",
