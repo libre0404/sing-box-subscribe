@@ -142,7 +142,7 @@
         "outbounds":[
           "auto",
           "direct",
-		  "HongKong",
+	  "HongKong",
           "Singapore",
           "Japan",
           "America",
@@ -210,9 +210,9 @@
         "tag":"Google",
         "type":"selector",
         "outbounds":[
-		  "auto",
+	  "auto",
           "direct",
-		  "HongKong",
+	  "HongKong",
           "TaiWan",
           "Singapore",
           "Japan",
@@ -296,7 +296,7 @@
       },
       {
         "tag":"TaiWan",
-        "type":"selector",
+        "type":"urltest",
         "outbounds":[
           "{all}"
         ],
@@ -348,14 +348,14 @@
       },
       {
         "tag":"Others",
-        "type":"selector",
+        "type":"urltest",
         "outbounds":[
           "{all}"
         ],
         "filter":[
           {"action":"exclude","keywords":["🇭🇰|HK|hk|香港|香|🇹🇼|TW|tw|台湾|台|🇸🇬|SG|sg|新加坡|狮|🇯🇵|JP|jp|日本|日|🇺🇸|US|us|美国|美"]}
         ],
-		"url": "http://www.gstatic.com/generate_204",
+	"url": "http://www.gstatic.com/generate_204",
         "interval": "10m",
         "tolerance": 50
       },
@@ -372,7 +372,7 @@
         "interval": "10m",
         "tolerance": 50
       },   
-	  {
+      {
         "type": "direct",
         "tag": "direct"
       }
@@ -426,7 +426,7 @@
             ".skype.com",
 	    ".zangi.com",
             ".webex.com",
-	        ".wbx2.com"
+	    ".wbx2.com"
           ],
           "outbound": "Zoom"
         },
