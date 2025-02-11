@@ -22,12 +22,11 @@
     },
     "dns": {
       "servers": [
-        {
-          "tag": "local",
-          "server": "10.10.10.1",
-		  "server_port": 53,
-          "detour": "direct"
-        }
+      {
+        "tag": "local",
+        "address": "10.10.10.1",
+        "detour": "direct"
+      }
       ],
       "rules": [
         {
@@ -390,7 +389,7 @@
         },
         {
           "protocol": "dns",
-          "outbound": "dns-out"
+          "action": "hijack-dns"
         },
         {
           "domain": [
