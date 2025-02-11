@@ -100,7 +100,7 @@
         "outbounds":[
           "auto",
           "direct",
-		  "HongKong",
+	  "HongKong",
           "Singapore",
           "Japan",
           "America",
@@ -114,7 +114,7 @@
         "outbounds":[
           "auto",
           "direct",
-		  "HongKong",
+	  "HongKong",
           "Singapore",
           "Japan",
           "America",
@@ -128,7 +128,7 @@
         "outbounds":[
           "auto",
           "direct",
-		  "HongKong",
+	  "HongKong",
           "Singapore",
           "Japan",
           "America",
@@ -156,7 +156,7 @@
         "outbounds":[
           "auto",
           "direct",
-		  "HongKong",
+	  "HongKong",
           "Singapore",
           "Japan",
           "America",
@@ -170,7 +170,7 @@
         "outbounds":[
           "auto",
           "direct",
-		  "HongKong",
+	  "HongKong",
           "Singapore",
           "Japan",
           "America",
@@ -184,7 +184,7 @@
         "outbounds":[
           "auto",
           "direct",
-		  "HongKong",
+	  "HongKong",
           "Singapore",
           "Japan",
           "America",
@@ -198,7 +198,7 @@
         "outbounds":[
           "auto",
           "direct",
-		  "HongKong",
+	  "HongKong",
           "Singapore",
           "Japan",
           "America",
@@ -244,7 +244,7 @@
           "America",
           "Others"
         ],
-		"default": "direct"
+	"default": "direct"
       },
       {
         "tag":"Microsoft",
@@ -258,7 +258,7 @@
           "America",
           "Others"
         ],
-		"default": "direct"
+	"default": "direct"
       },
       {
         "tag":"Global",
@@ -290,7 +290,7 @@
         "filter":[
           {"action":"include","keywords":["🇭🇰|HK|hk|香港|港|HongKong"]}
         ],
-		"url": "http://www.gstatic.com/generate_204",
+	"url": "http://www.gstatic.com/generate_204",
         "interval": "10m",
         "tolerance": 50
       },
@@ -303,7 +303,7 @@
         "filter":[
           {"action":"include","keywords":["🇹🇼|TW|tw|台湾|臺灣|台|Taiwan"]}
         ],
-		"url": "http://www.gstatic.com/generate_204",
+	"url": "http://www.gstatic.com/generate_204",
         "interval": "10m",
         "tolerance": 50
       },
@@ -316,7 +316,7 @@
         "filter":[
           {"action":"include","keywords":["🇸🇬|SG|sg|新加坡|狮|Singapore"]}
         ],
-		"url": "http://www.gstatic.com/generate_204",
+	"url": "http://www.gstatic.com/generate_204",
         "interval": "10m",
         "tolerance": 50
       },
@@ -329,7 +329,7 @@
         "filter":[
           {"action":"include","keywords":["🇯🇵|JP|jp|日本|日|Japan"]}
         ],
-		"url": "http://www.gstatic.com/generate_204",
+	"url": "http://www.gstatic.com/generate_204",
         "interval": "10m",
         "tolerance": 50
       },
@@ -342,7 +342,7 @@
         "filter":[
           {"action":"include","keywords":["🇺🇸|US|us|美国|美|United States"]}
         ],
-		"url": "http://www.gstatic.com/generate_204",
+	"url": "http://www.gstatic.com/generate_204",
         "interval": "10m",
         "tolerance": 50
       },
@@ -390,7 +390,8 @@
         "mode": "or",
         "rules":[
           {
-            "port":53
+            "address": "10.10.10.14",
+	    "port":53
           },
           {
             "protocol": "dns"
@@ -423,7 +424,7 @@
             ".datchat.com",
             ".datchat.net",
             ".skype.com",
-			".zangi.com",
+	    ".zangi.com",
             ".webex.com",
 	        ".wbx2.com"
           ],
