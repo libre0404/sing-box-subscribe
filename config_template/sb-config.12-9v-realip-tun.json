@@ -1,7 +1,7 @@
 {
     "log": {
       "disabled": false,
-	  "level": "warn",
+	  "level": "info",
 	  "output": "/etc/sing-box/sing-box.log",
       "timestamp": true
     },
@@ -192,6 +192,20 @@
         ],
         "default": "direct"
       },
+	  {
+	    "tag": "Mini",
+	    "type": "selector",
+	    "outbounds": [
+		  "auto",
+		  "direct",
+		  "HongKong",
+		  "Singapore",
+		  "Japan",
+		  "America",
+		  "Others"
+	    ],
+	    "default": "direct"
+	  },
       {
         "tag":"Google",
         "type":"selector",
@@ -276,7 +290,7 @@
         "filter":[
           {"action":"include","keywords":["🇭🇰|HK|hk|香港|港|HongKong"]}
         ],
-		"url": "http://www.gstatic.com/generate_204",
+		"url": "https://www.google.com/generate_204",
         "interval": "10m",
         "tolerance": 50
       },
@@ -339,7 +353,7 @@
         "filter":[
           {"action":"exclude","keywords":["网址|地址|剩余|过期|时间|有效"]}
         ],
-        "url": "http://www.gstatic.com/generate_204",
+        "url": "https://www.google.com/generate_204",
         "interval": "10m",
         "tolerance": 50
       },   
@@ -377,11 +391,18 @@
         "outbound": "Proxy"
       },
       {
+        "domain_suffix": [
+          "jw-cdn.org",
+		  "jw.org"
+        ],
+        "action": "route",
+        "outbound": "HongKong"
+      },		  
+      {
         "domain": [
           "clash.razord.top",
           "yacd.metacubex.one",
           "yacd.haishan.me",
-		  "testingcf.jsdelivr.net",
           "d.metacubex.one"
         ],
 		"action": "route",
@@ -389,7 +410,6 @@
       },
       {
         "domain_suffix": [
-          ".zoom.us",
           ".chattti.com",
           ".skypone.jp",
           ".datchat.com",
@@ -399,8 +419,18 @@
           ".webex.com",
           ".wbx2.com"
         ],
+        "domain": [
+          "testingcf.jsdelivr.net"
+        ],		
         "ip_cidr": [
           "3.29.20.146"
+        ],
+		"action": "route",
+        "outbound": "Mini"
+      },
+      {
+        "rule_set": [
+          "geo-zoom"
         ],
 		"action": "route",
         "outbound": "Zoom"
@@ -537,6 +567,13 @@
           "url": "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geosite/azure.srs",
 		  "download_detour": "direct"
         },		
+        {
+          "tag": "geo-zoom",
+          "type": "remote",
+          "format": "binary",
+          "url": "https://testingcf.jsdelivr.net/gh/libre0404/sing-box-geosite@main/rule/zoom.srs",
+          "download_detour": "direct"
+        },
         {
           "tag": "geosite-youtube",
           "type": "remote",
