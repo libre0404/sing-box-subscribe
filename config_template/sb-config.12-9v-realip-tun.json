@@ -1,8 +1,8 @@
 {
-    "log": {
+"log": {
       "disabled": false,
-	  "level": "info",
-	  "output": "/etc/sing-box/sing-box.log",
+      "level": "info",
+      "output": "/etc/sing-box/sing-box.log",
       "timestamp": true
     },
     "experimental": {
@@ -23,13 +23,13 @@
     "servers": [
       {
         "type": "dhcp",
-		"tag": "localDns",
+        "tag": "localDns",
         "interface": "ens18",
-		"detour": "direct"
+        "detour": "direct"
       }
     ],
     "rules": [ 
-	  {
+     {
         "clash_mode": "direct",
         "action": "route",
         "server": "localDns"
@@ -49,7 +49,7 @@
       "type": "tun",
       "address": [
         "172.19.0.0/30",
-		"fdfe:dcba:9876::1/126"
+        "fdfe:dcba:9876::1/126"
       ],
       "auto_route": true,
       "strict_route": true,
@@ -76,7 +76,7 @@
         "outbounds":[
           "auto",
           "direct",
-		  "HongKong",
+	  "HongKong",
           "{all}"
         ]
       },
@@ -86,7 +86,7 @@
         "outbounds":[
           "auto",
           "direct",
-		  "HongKong",
+          "HongKong",
           "Singapore",
           "Japan",
           "America",
@@ -100,7 +100,7 @@
         "outbounds":[
           "auto",
           "direct",
-		  "HongKong",
+          "HongKong",
           "Singapore",
           "Japan",
           "America",
@@ -114,7 +114,7 @@
         "outbounds":[
           "auto",
           "direct",
-		  "HongKong",
+          "HongKong",
           "Singapore",
           "Japan",
           "America",
@@ -128,7 +128,7 @@
         "outbounds":[
           "auto",
           "direct",
-		  "HongKong",
+          "HongKong",
           "Singapore",
           "Japan",
           "America",
@@ -170,7 +170,7 @@
         "outbounds":[
           "auto",
           "direct",
-		  "HongKong",
+	  "HongKong",
           "Singapore",
           "Japan",
           "America",
@@ -184,7 +184,7 @@
         "outbounds":[
           "auto",
           "direct",
-		  "HongKong",
+	  "HongKong",
           "Singapore",
           "Japan",
           "America",
@@ -196,13 +196,13 @@
 	    "tag": "Mini",
 	    "type": "selector",
 	    "outbounds": [
-		  "auto",
-		  "direct",
-		  "HongKong",
-		  "Singapore",
-		  "Japan",
-		  "America",
-		  "Others"
+	      "auto",
+	      "direct",
+	      "HongKong",
+	      "Singapore",
+	      "Japan",
+	      "America",
+	      "Others"
 	    ],
 	    "default": "direct"
 	  },
@@ -210,9 +210,9 @@
         "tag":"Google",
         "type":"selector",
         "outbounds":[
-		  "auto",
+	  "auto",
           "direct",
-		  "HongKong",
+	  "HongKong",
           "TaiWan",
           "Singapore",
           "Japan",
@@ -244,7 +244,7 @@
           "America",
           "Others"
         ],
-		"default": "direct"
+	"default": "direct"
       },
       {
         "tag":"Microsoft",
@@ -258,7 +258,7 @@
           "America",
           "Others"
         ],
-		"default": "direct"
+	"default": "direct"
       },
       {
         "tag":"Global",
@@ -290,7 +290,7 @@
         "filter":[
           {"action":"include","keywords":["🇭🇰|HK|hk|香港|港|HongKong"]}
         ],
-		"url": "https://www.google.com/generate_204",
+	"url": "https://www.google.com/generate_204",
         "interval": "10m",
         "tolerance": 50
       },
@@ -393,7 +393,7 @@
       {
         "domain_suffix": [
           "jw-cdn.org",
-		  "jw.org"
+	  "jw.org"
         ],
         "action": "route",
         "outbound": "HongKong"
@@ -425,19 +425,19 @@
         "ip_cidr": [
           "3.29.20.146"
         ],
-		"action": "route",
+	"action": "route",
         "outbound": "Mini"
       },
       {
         "rule_set": [
           "geo-zoom"
         ],
-		"action": "route",
+	"action": "route",
         "outbound": "Zoom"
       },
       {
         "ip_is_private": true,
-		"action": "route",
+	"action": "route",
         "outbound": "direct"
       },
       {
@@ -453,17 +453,17 @@
           "geosite-aws",
           "geoip-cloudfront"
         ],
-		"action": "route",
+	"action": "route",
         "outbound": "Aws"
       },
       {
         "rule_set": "geosite-akamai",
-		"action": "route",
+	"action": "route",
         "outbound": "Akamai"
       },
       {
         "rule_set": "geosite-amazon",
-		"action": "route",
+	"action": "route",
         "outbound": "Amazon"
       },
       {
@@ -473,7 +473,7 @@
       },
       {
         "rule_set": "geosite-youtube",
-		"action": "route",
+	"action": "route",
         "outbound": "Youtube"
       },
       {
@@ -486,7 +486,7 @@
           "geoip-google",
           "geosite-google"
         ],
-		"action": "route",
+        "action": "route",
         "outbound": "Google"
       },
       {
@@ -494,7 +494,7 @@
           "geoip-telegram",
           "geosite-telegram"
         ],
-		"action": "route",
+	"action": "route",
         "outbound": "Telegram"
       },
       {
@@ -507,7 +507,7 @@
       },
       {
         "rule_set": "geosite-microsoft",
-		"action": "route",
+        "action": "route",
         "outbound": "Microsoft"
       },
       {
