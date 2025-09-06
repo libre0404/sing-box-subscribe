@@ -54,6 +54,12 @@
       {"ip_is_private": true, "outbound": "➡️ 直连"},
       {"clash_mode": "direct", "outbound": "➡️ 直连"},
       {"clash_mode": "global", "outbound": "GLOBAL"},
+      {"domain": ["lens.l.google.com"], "outbound": "🦅 美国自动"},
+      {"domain_suffix": ["geller-pa.googleapis.com", "generativelanguage.googleapis.com", "alkalimakersuite-pa.clients6.google.com", "aistudio.google.com"], "outbound": "🤖 Gemini"},	 	  
+      {"domain_suffix": ["gspe1-ssl.ls.apple.com", "ls.apple.com"], "outbound": "🐸 手动切换"},
+      {"domain_suffix": ["tktn.be", "tktn.at", "tenor.com", "vm.talkatone.com"], "outbound": "🐻 新加坡自动"},
+      {"domain_suffix": ["entsrv-uk.vodafone.com", "epdg.epc.mnc015.mcc234.pub.3gppnetwork.org", "ss.epdg.epc.mnc015.mcc234.pub.3gppnetwork.org", "ss.epdg.epc.geo.mnc015.mcc234.pub.3gppnetwork.org", "vuk-gto.prod.ondemandconnectivity.com", "vm.talkatone.com"], "outbound": "🦁 英国自动"},	  
+      {"ip_cidr": ["148.252.188.96", "17.188.169.153", "87.194.0.0/16", "88.82.0.0/19", "46.68.0.0/17"], "outbound": "🦁 英国自动"},	  
       {"rule_set": "geosite-Gemini", "outbound": "🤖 Gemini"},
       {"rule_set": "geosite-youtube", "outbound": "📹 YouTube"},
       {"rule_set": "geosite-google", "outbound": "🍀 Google"},
@@ -120,7 +126,7 @@
   "experimental": {
     "cache_file": {
       "enabled": true,
-      "path": "/etc/momo/run/cache.db",
+      "path": "/etc/sing-box/cache.db",
       "store_fakeip": true
     },
     "clash_api": {
