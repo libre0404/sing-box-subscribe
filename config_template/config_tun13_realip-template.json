@@ -93,7 +93,7 @@
     "rule_set": [
       {"tag": "adblock", "type": "remote", "format": "binary", "url": "https://gh-proxy.com/https://raw.githubusercontent.com/REIJI007/AdBlock_Rule_For_Sing-box/main/adblock_reject.srs", "download_detour": "🚦 直连"},
       {"tag": "geosite-GoogleDrive", "type": "remote", "format": "binary", "url": "https://gh-proxy.com/https://raw.githubusercontent.com/senshinya/singbox_ruleset/refs/heads/main/rule/GoogleDrive/GoogleDrive.srs", "download_detour": "🚦 直连"},
-      {"tag": "geosite-applegps", "type": "remote", "format": "binary", "url": "url": "https://gh-proxy.com/https://raw.githubusercontent.com/willwiza/sing-box-geosite/refs/heads/main/rule/apple-gps.srs", "download_detour": "🚦 直连"},
+      {"tag": "geosite-applegps", "type": "remote", "format": "binary", "url": "https://gh-proxy.com/https://raw.githubusercontent.com/willwiza/sing-box-geosite/refs/heads/main/rule/apple-gps.srs", "download_detour": "🚦 直连"},
       {"tag": "geosite-talkatone", "type": "remote", "format": "binary", "url": "https://gh-proxy.com/https://raw.githubusercontent.com/willwiza/sing-box-geosite/refs/heads/main/rule/talkatone.srs", "download_detour": "🚦 直连"},
       {"tag": "geosite-uk-wificalling", "type": "remote", "format": "binary", "url": "https://gh-proxy.com/https://raw.githubusercontent.com/willwiza/sing-box-geosite/refs/heads/main/rule/talkatone.srs", "download_detour": "🚦 直连"},
       {"tag": "geosite-googlevoice", "type": "remote", "format": "binary", "url": "https://gh-proxy.com/https://raw.githubusercontent.com/willwiza/sing-box-geosite/refs/heads/main/rule/googlevoice.srs", "download_detour": "🚦 直连"},
@@ -155,7 +155,7 @@
     "clash_api": {
       "external_controller": "0.0.0.0:9090",
       "external_ui": "/etc/sing-box/ui",
-      "external_ui_download_url": "https://gh-proxy.com/https://github.com/Zephyruso/zashboard/releases/download/latest/dist.zip"",
+      "external_ui_download_url": "https://gh-proxy.com/https://github.com/Zephyruso/zashboard/releases/download/latest/dist.zip",
       "external_ui_download_detour": "🚦 直连",
       "secret": "",
       "default_mode": "rule"
