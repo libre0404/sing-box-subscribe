@@ -34,7 +34,7 @@
     {"tag": "📲 Instagram", "type": "selector", "outbounds": ["🚀 节点选择", "♻️ 自动选择", "🐻 新加坡自动", "☀ 日本自动", "🦅 美国自动", "🐸 手动切换"], "default": "🦅 美国自动"},
     {"tag": "📲 Line", "type": "selector", "outbounds": ["🚀 节点选择", "♻️ 自动选择", "🐻 新加坡自动", "☀ 日本自动", "🦅 美国自动", "🐸 手动切换"], "default": "☀ 日本自动"},
     {"tag": "📲 Whatsapp", "type": "selector", "outbounds": ["🚀 节点选择", "♻️ 自动选择", "🐻 新加坡自动", "☀ 日本自动", "🦅 美国自动", "🐸 手动切换"], "default": "🦅 美国自动"},
-    {"tag": "🪟 Microsoft", "type": "selector", "outbounds": ["🚀 节点选择", "♻️ 自动选择", "🐻 新加坡自动", "☀ 日本自动", "🦅 美国自动", "🐸 手动切换"], "default": "🚦 直连"},
+    {"tag": "🪟 Microsoft", "type": "selector", "outbounds": ["🚦 直连", "🚀 节点选择", "♻️ 自动选择", "🐻 新加坡自动", "☀ 日本自动", "🦅 美国自动", "🐸 手动切换"], "default": "🚦 直连"},
     {"tag": "🍎 appleGPS", "type": "selector", "outbounds": ["🇺🇸 [SS] USA-02", "🚦 直连", "🚀 节点选择", "♻️ 自动选择", "🦁 英国自动", "🐻 新加坡自动", "☀ 日本自动", "🦅 美国自动", "🐸 手动切换"], "default": "🦁 英国自动"},
     {"tag": "🍏 Apple", "type": "selector", "outbounds": ["🚦 直连", "🚀 节点选择", "♻️ 自动选择", "🐻 新加坡自动", "☀ 日本自动", "🦅 美国自动", "🐸 手动切换"], "default": "🦅 美国自动"},
     {"tag": "❤ 规则之外", "type": "selector", "outbounds": ["🚀 节点选择", "♻️ 自动选择", "🇺🇸 [SS] USA-02", "🚦 直连"], "default": "🚦 直连"},
