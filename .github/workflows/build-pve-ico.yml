@@ -11,167 +11,132 @@ on:
     branches:
       - sb-docker
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build type (full/quick)'
-        required: true
-        default: 'full'
-        type: choice
-        options:
-          - full
-          - quick
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-  DOCKERFILE_PATH: ./Dockerfile
   ICO_VERSION: 1.0
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up QEMU for multi-architecture
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (Tags and Labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ${{ env.DOCKERFILE_PATH }}
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   create-ico-image:
-    needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/sb-docker'
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout code
+        run: |
+          git clone --depth 1 https://github.com/${{ github.repository }} .
+          git checkout ${{ github.ref_name }}
 
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            qemu-utils \
-            debootstrap \
-            curl \
-            wget \
-            jq \
-            zstd
+            qemu-utils debootstrap curl wget jq zstd git docker.io
+
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker buildx create --use
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --tag ghcr.io/${{ github.repository }}:latest \
+            --push \
+            .
 
       - name: Create workspace
-        id: workspace
         run: |
-          WORKSPACE_ROOT=${{ github.workspace }}/workspace
-          mkdir -p "$WORKSPACE_ROOT"/{root,output}
-          echo "workspace_dir=$WORKSPACE_ROOT" >> $GITHUB_OUTPUT
-          echo "Workspace created at: $(pwd)"
+          mkdir -p workspace/{root,output}
+          cd workspace
+          echo "Workspace created"
 
       - name: Download base ICO image
-        id: download
         run: |
-          ROOT_DIR="${{ github.workspace }}/workspace/root"
-          cd "$ROOT_DIR"
-          
+          cd workspace/root
           echo "Downloading Debian 12 base image..."
           wget -q --timeout=300 --tries=3 -O debian-12-base.tar.zst \
             https://download.proxmox.com/images/system/debian-12-standard_12.2-1_amd64.tar.zst || \
-            wget -q --timeout=300 --tries=3 -O debian-12-base.tar.zst \
-            http://download.proxmox.com/images/system/debian-12-standard_12.2-1_amd64.tar.zst
-          
-          if [ -f debian-12-base.tar.zst ]; then
-            echo "✅ Base image downloaded successfully"
-            echo "status=downloaded" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️ Download failed, will use debootstrap instead"
-            echo "status=debootstrap" >> $GITHUB_OUTPUT
-          fi
+          wget -q --timeout=300 --tries=3 -O debian-12-base.tar.zst \
+            http://download.proxmox.com/images/system/debian-12-standard_12.2-1_amd64.tar.zst || \
+          echo "Download failed, will use debootstrap"
+          echo "status=debootstrap" >> $GITHUB_STEP_SUMMARY
 
       - name: Prepare container rootfs
-        id: rootfs
         run: |
-          ROOT_DIR="${{ github.workspace }}/workspace/root"
-          ROOTFS="$ROOT_DIR/rootfs"
+          cd workspace/root
+          ROOTFS="rootfs"
           mkdir -p "$ROOTFS"
           
-          if [ "${{ steps.download.outputs.status }}" == "debootstrap" ]; then
-            echo "Creating rootfs with debootstrap..."
-            sudo debootstrap --variant=minbase --no-check-gpg \
-              bookworm "$ROOTFS" http://deb.debian.org/debian
-          else
-            echo "Extracting base image..."
-            sudo tar -xf "$ROOT_DIR/debian-12-base.tar.zst" -C "$ROOTFS"
-          fi
+          echo "Creating rootfs with debootstrap..."
+          sudo debootstrap --variant=minbase --no-check-gpg \
+            bookworm "$ROOTFS" http://deb.debian.org/debian
           
-          echo "rootfs_path=$ROOTFS" >> $GITHUB_OUTPUT
           echo "✅ Rootfs prepared"
           sudo ls -la "$ROOTFS" | head -10
 
       - name: Customize container
         run: |
-          ROOTFS="${{ steps.rootfs.outputs.rootfs_path }}"
+          ROOTFS="workspace/root/rootfs"
           
-          if [ -f .github/scripts/customize-container.sh ]; then
-            echo "Running customization script..."
-            chmod +x .github/scripts/customize-container.sh
-            sudo bash .github/scripts/customize-container.sh "$ROOTFS"
-          else
-            echo "No customize script found, using defaults"
-            sudo chroot "$ROOTFS" bash -c '
-              export DEBIAN_FRONTEND=noninteractive
-              apt-get update -qq
-              apt-get install -y --no-install-recommends \
-                ca-certificates \
-                curl \
-                wget \
-                procps \
-                systemd \
-                openssh-server
-              apt-get clean
-              rm -rf /var/lib/apt/lists/*
-            '
-          fi
+          echo "Customizing container..."
+          sudo chroot "$ROOTFS" bash -c '
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq
+            apt-get install -y --no-install-recommends \
+              ca-certificates curl wget procps systemd openssh-server
+            apt-get clean
+            rm -rf /var/lib/apt/lists/*
+          '
           
           echo "✅ Container customization completed"
 
       - name: Create TAR archive for PVE
-        id: archive
         run: |
-          OUTPUT_DIR="${{ github.workspace }}/
+          OUTPUT_DIR="workspace/output"
+          ROOTFS="workspace/root/rootfs"
+          
+          mkdir -p "$OUTPUT_DIR"
+          cd "$ROOTFS"
+          
+          echo "Creating TAR.ZST archive..."
+          sudo tar --numeric-owner --xattrs -cf - . | \
+            zstd -10 -o "$OUTPUT_DIR/sing-box-subscribe-ct.tar.zst"
+          
+          echo "✅ Archive created: $(ls -lh "$OUTPUT_DIR/")"
+
+      - name: Create metadata
+        run: |
+          OUTPUT_DIR="workspace/output"
+          cd "$OUTPUT_DIR"
+          
+          BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          CONTENT_HASH=$(sha256sum sing-box-subscribe-ct.tar.zst | cut -d' ' -f1)
+          FILE_SIZE=$(du -b sing-box-subscribe-ct.tar.zst | cut -f1)
+          
+          cat > metadata.json << EOF
+{
+  "name": "sing-box-subscribe",
+  "version": "1.0",
+  "type": "lxc",
+  "arch": "amd64",
+  "created": "$BUILD_TIME",
+  "description": "Sing-Box Subscription Container for Proxmox VE"
+}
+EOF
+          
+          echo "✅ Metadata created"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: pve-ico-image-${{ github.sha }}
+          path: workspace/output/*
+          retention-days: 30
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## PVE CT Image Build Complete"
+          echo "- Download: [Actions Artifacts]"
+          echo "- Import to PVE: `pct restore <ID> sing-box-subscribe-ct.tar.zst`"
