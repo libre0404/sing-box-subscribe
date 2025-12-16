@@ -5,7 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# 安装系统依赖 + Python 环境
+# 安装系统服务（不修改只读文件）
 RUN apt-get update && apt-get install -y --no-install-recommends \
     systemd systemd-sysv openssh-server curl wget procps net-tools \
     ca-certificates tzdata cron htop iputils-ping dnsutils sudo vim \
@@ -19,25 +19,25 @@ WORKDIR /sing-box-subscribe
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# 配置 SSH (root 登录)
+# 配置 SSH（只修改 sshd_config）
 RUN sed -i 's/#*PermitRootLogin .*/PermitRootLogin yes/' /etc/ssh/sshd_config \
     && sed -i 's/#*PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config \
     && echo "root:changeme123" | chpasswd \
     && mkdir -p /var/run/sshd
 
-# 时区 + DNS
-RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime \
-    && echo "UTC" > /etc/timezone \
-    && echo "nameserver 8.8.8.8" > /etc/resolv.conf
+# 创建临时 DNS 和时区配置（运行时生效）
+RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf.dnsmasq \
+    && echo "nameserver 8.8.4.4" >> /etc/resolv.conf.dnsmasq \
+    && ln -sf /usr/share/zoneinfo/UTC /etc/localtime.default \
+    && echo "UTC" > /etc/timezone.default
+
+# 复制 systemd 服务
+COPY sing-box-subscribe.service /etc/systemd/system/
 
 # 启用服务
-RUN systemctl enable ssh cron
+RUN systemctl enable ssh.service cron.service sing-box-subscribe.service
 
 # 暴露端口
 EXPOSE 22 5000
 
-# OCI LXC 兼容：systemd 启动（自动运行您的 Python app）
-CMD ["/lib/systemd/systemd"]
-# 创建 systemd 服务（自动启动您的 Python app）
-COPY sing-box-subscribe.service /etc/systemd/system/
-RUN systemctl enable sing-box-subscribe.service
+# OCI
