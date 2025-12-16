@@ -1,0 +1,16 @@
+[Unit]
+Description=Sing-Box Subscribe Web Service
+After=network.target
+
+[Service]
+Type=simple
+User=nobody
+Group=nogroup
+WorkingDirectory=/sing-box-subscribe
+ExecStart=/usr/local/bin/python /sing-box-subscribe/api/app.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
