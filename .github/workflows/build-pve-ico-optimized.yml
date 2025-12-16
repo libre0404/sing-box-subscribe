@@ -10,46 +10,37 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Install dependencies
+      - name: Build PVE CT Template
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y debootstrap zstd
+          # 1. 创建目录
+          OUTPUT_DIR="$GITHUB_WORKSPACE/workspace/output"
+          ROOTFS_DIR="$GITHUB_WORKSPACE/workspace/root/rootfs"
+          mkdir -p "$OUTPUT_DIR" "$ROOTFS_DIR"
 
-      - name: Create and customize rootfs
-        run: |
-          mkdir -p workspace/root/rootfs workspace/output
-
-      - name: Debootstrap
-        run: |
-          cd workspace/root
+          # 2. 创建基础系统
+          cd "$GITHUB_WORKSPACE/workspace/root"
           sudo debootstrap --variant=minbase bookworm rootfs http://deb.debian.org/debian
 
-      - name: Customize rootfs
-        run: |
-          cd workspace/root/rootfs
-          sudo chroot . bash -c "
+          # 3. 安装必要软件
+          sudo chroot "$ROOTFS_DIR" bash -c "
             export DEBIAN_FRONTEND=noninteractive
-            apt-get update -qq
+            apt-get update
             apt-get install -y ca-certificates curl wget procps openssh-server
             apt-get clean
             rm -rf /var/lib/apt/lists/*
           "
 
-      - name: Create PVE template (2-step safe method)
-        run: |
-          # Step 1: Create uncompressed tar first
-          cd workspace/root/rootfs
-          sudo tar --numeric-owner --one-file-system -cf /tmp/sing-box-ct.tar .
-          
-          # Step 2: Compress with absolute path
-          zstd -19 --stdout /tmp/sing-box-ct.tar > workspace/output/sing-box-ct.tar.zst
-          rm /tmp/sing-box-ct.tar
+          # 4. 创建 tar.zst (绝对路径)
+          cd "$ROOTFS_DIR"
+          sudo tar --numeric-owner --one-file-system -cf - . | \
+            zstd -19 -o "$OUTPUT_DIR/sing-box-ct.tar.zst"
 
-      - name: Finalize
-        run: |
-          cd workspace/output
+          # 5. 生成校验和
+          cd "$OUTPUT_DIR"
           sha256sum sing-box-ct.tar.zst > sing-box-ct.tar.zst.sha256
+
+          # 6. 显示结果
+          echo "✅ SUCCESS!"
+          echo "Files created:"
           ls -lh .
-          echo "✅ Build completed successfully!"
-          echo "File sizes:"
-          du -h sing-box-ct.tar.zst sing-box-ct.tar.zst.sha256
+          echo "SHA256: $(cat sing-box-ct.tar.zst.sha256)"
