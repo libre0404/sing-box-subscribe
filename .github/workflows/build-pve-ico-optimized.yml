@@ -11,9 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        run: |
-          git clone --depth 1 https://github.com/${{ github.repository }} .
-          git checkout ${{ github.ref_name }}
+        run: git clone https://github.com/${{ github.repository }} .
 
       - name: Install dependencies
         run: |
@@ -23,7 +21,6 @@ jobs:
       - name: Create workspace
         run: |
           mkdir -p workspace/{root,output}
-          cd workspace
 
       - name: Prepare rootfs
         run: |
@@ -51,9 +48,9 @@ jobs:
           sha256sum sing-box-ct.tar.zst > sing-box-ct.tar.zst.sha256
           ls -lh .
 
-      - name: Show results
+      - name: Display results
         run: |
-          echo "## Build Complete ✅"
+          echo "::notice::Build completed successfully!"
           echo "| File | Size |"
           echo "|------|------|"
-          ls -lh workspace/output/ | awk 'NR>1 {print "|" $9 "|"$5"|" }'
+          ls -lh workspace/output/ | tail -n +2 | awk '{print "|" $9 "| " $5 "|"}'
