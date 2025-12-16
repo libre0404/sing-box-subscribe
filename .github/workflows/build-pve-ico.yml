@@ -1,4 +1,4 @@
-# GitHub Actions 工作流：构建 PVE CT 可用的 ICO 镜像（优化版）
+## GitHub Actions 工作流：构建 PVE CT 可用的 ICO 镜像（优化版）
 name: Build PVE CT ICO Image
 
 on:
