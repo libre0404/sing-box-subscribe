@@ -201,28 +201,28 @@ jobs:
           FILE_SIZE=$(du -b "$TAR_FILE" | cut -f1)
           
           cat > "$METADATA_FILE" << EOF
-{
-  "name": "sing-box-subscribe",
-  "version": "${{ env.ICO_VERSION }}",
-  "type": "lxc",
-  "arch": "amd64",
-  "created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "os": "debian",
-  "os-version": "12",
-  "description": "Sing-Box Subscription Container for Proxmox VE",
-  "source": "https://github.com/libre0404/sing-box-subscribe/tree/sb-docker",
-  "content-hash": "$CONTENT_HASH",
-  "fingerprint": "$(date +%s)",
-  "size": $FILE_SIZE,
-  "build-info": {
-    "builder": "GitHub Actions",
-    "base-image": "Debian 12 Bookworm",
-    "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-    "commit": "${{ github.sha }}",
-    "branch": "${{ github.ref }}"
-  }
-}
-EOF
+         {
+           "name": "sing-box-subscribe",
+           "version": "${{ env.ICO_VERSION }}",
+           "type": "lxc",
+           "arch": "amd64",
+           "created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+           "os": "debian",
+           "os-version": "12",
+           "description": "Sing-Box Subscription Container for Proxmox VE",
+           "source": "https://github.com/libre0404/sing-box-subscribe/tree/sb-docker",
+          "content-hash": "$CONTENT_HASH",
+           "fingerprint": "$(date +%s)",
+           "size": $FILE_SIZE,
+           "build-info": {
+             "builder": "GitHub Actions",
+             "base-image": "Debian 12 Bookworm",
+             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+             "commit": "${{ github.sha }}",
+             "branch": "${{ github.ref }}"
+           }
+         }
+         EOF
           
           echo "✅ Metadata file created"
           cat "$METADATA_FILE"
