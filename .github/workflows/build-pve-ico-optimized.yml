@@ -83,7 +83,7 @@ jobs:
   create-ico-image:
     needs: build
     runs-on: ubuntu-latest
-    # 仅在 sb-docker 分支上 push 时执行，不包含 pull_request 或其他分支
+    # 仅在 sb-docker 分支上 push 时执行
     if: github.event_name == 'push' && github.ref == 'refs/heads/sb-docker'
 
     steps:
@@ -100,7 +100,6 @@ jobs:
             curl \
             wget \
             jq \
-            # 确保 zstd 已安装，用于 Proxmox 推荐的压缩格式
             zstd
 
       - name: Create workspace
@@ -108,13 +107,14 @@ jobs:
         run: |
           WORKSPACE_ROOT=${{ github.workspace }}/workspace
           mkdir -p "$WORKSPACE_ROOT"/{root,output}
+          # 将工作目录路径传递给后续步骤
           echo "workspace_dir=$WORKSPACE_ROOT" >> $GITHUB_OUTPUT
           echo "Workspace created at: $(pwd)"
 
       - name: Download base ICO image
         id: download
         run: |
-          ROOT_DIR="${{ steps.workspace.outputs.workspace_dir }}/root"
+          ROOT_DIR="${{ github.workspace }}/workspace/root"
           cd "$ROOT_DIR"
           
           echo "Downloading Debian 12 base image..."
@@ -126,59 +126,4 @@ jobs:
           
           if [ -f debian-12-base.tar.zst ]; then
             echo "✅ Base image downloaded successfully"
-            echo "status=downloaded" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️ Download failed, will use debootstrap instead"
-            echo "status=debootstrap" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Prepare container rootfs
-        run: |
-          ROOT_DIR="${{ steps.workspace.outputs.workspace_dir }}/root"
-          cd "$ROOT_DIR"
-          mkdir -p rootfs
-          
-          if [ "${{ steps.download.outputs.status }}" == "debootstrap" ]; then
-            echo "Creating rootfs with debootstrap..."
-            # 使用 debootstrap 创建
-            sudo debootstrap --variant=minbase --no-check-gpg \
-              bookworm ./rootfs http://deb.debian.org/debian
-          else
-            echo "Extracting base image..."
-            # 解压基础镜像
-            sudo tar -xf debian-12-base.tar.zst -C rootfs
-          fi
-          
-          echo "✅ Rootfs prepared"
-          sudo ls -la rootfs/ | head -10
-
-      - name: Customize container
-        run: |
-          ROOTFS="${{ steps.workspace.outputs.workspace_dir }}/root/rootfs"
-          
-          # 使用提供的脚本进行定制（如果存在）
-          if [ -f .github/scripts/customize-container.sh ]; then
-            echo "Running customization script..."
-            chmod +x .github/scripts/customize-container.sh
-            # 传递 rootfs 路径作为参数
-            sudo bash .github/scripts/customize-container.sh "$ROOTFS"
-          else
-            echo "No customize script found, using defaults"
-            # 基础包安装
-            sudo chroot "$ROOTFS" bash -c '
-              # 设置最小化环境和非交互模式
-              export DEBIAN_FRONTEND=noninteractive
-              apt-get update -qq
-              apt-get install -y --no-install-recommends \
-                ca-certificates \
-                curl \
-                wget \
-                procps \
-                systemd \
-                openssh-server
-              apt-get clean
-              rm -rf /var/lib/apt/lists/*
-              '
-          fi
-          
-          echo "✅ Container customization
+            echo "status=downloaded
