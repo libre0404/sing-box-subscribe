@@ -13,11 +13,14 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y debootstrap wget curl jq zstd
+          sudo apt-get install -y debootstrap zstd
 
-      - name: Create rootfs
+      - name: Create and customize rootfs
         run: |
-          mkdir -p workspace/root/rootfs
+          mkdir -p workspace/root/rootfs workspace/output
+
+      - name: Debootstrap
+        run: |
           cd workspace/root
           sudo debootstrap --variant=minbase bookworm rootfs http://deb.debian.org/debian
 
@@ -32,20 +35,21 @@ jobs:
             rm -rf /var/lib/apt/lists/*
           "
 
-      - name: Create output directory
-        run: mkdir -p workspace/output
-
-      - name: Create tar archive
+      - name: Create PVE template (2-step safe method)
         run: |
+          # Step 1: Create uncompressed tar first
           cd workspace/root/rootfs
-          sudo tar --numeric-owner --one-file-system \
-            -cf - . | pv -s $(sudo du -sb .) | \
-            zstd -19 -o ../../../output/sing-box-ct.tar.zst
+          sudo tar --numeric-owner --one-file-system -cf /tmp/sing-box-ct.tar .
+          
+          # Step 2: Compress with absolute path
+          zstd -19 --stdout /tmp/sing-box-ct.tar > workspace/output/sing-box-ct.tar.zst
+          rm /tmp/sing-box-ct.tar
 
-      - name: Verify and finalize
+      - name: Finalize
         run: |
           cd workspace/output
-          ls -lh .
-          test -f sing-box-ct.tar.zst && echo "✅ Archive created" || echo "❌ Archive failed"
           sha256sum sing-box-ct.tar.zst > sing-box-ct.tar.zst.sha256
           ls -lh .
+          echo "✅ Build completed successfully!"
+          echo "File sizes:"
+          du -h sing-box-ct.tar.zst sing-box-ct.tar.zst.sha256
