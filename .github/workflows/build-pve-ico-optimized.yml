@@ -1,4 +1,4 @@
-name: Build PVE CT ICO Image
+name: Build PVE CT Image
 
 on:
   push:
@@ -7,52 +7,75 @@ on:
   workflow_dispatch:
 
 jobs:
-  create-pve-ct:
+  build:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/sb-docker'
-
     steps:
-      - name: Checkout
-        run: git clone https://github.com/${{ github.repository }} .
-
-      - name: Install tools
+      - name: Checkout code
         run: |
-          sudo apt-get update
+          git clone --depth 1 https://github.com/${{ github.repository }} .
+          git checkout ${{ github.ref_name }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
           sudo apt-get install -y debootstrap wget curl jq zstd
 
       - name: Create workspace
         run: |
           mkdir -p workspace/{root,output}
-          echo "Workspace ready"
+          cd workspace
+          echo "Workspace created"
 
-      - name: Download Proxmox template
+      - name: Prepare rootfs
         run: |
           cd workspace/root
-          echo "Downloading Debian template..."
-          if wget -q --timeout=120 -O debian.tar.zst \
-            https://download.proxmox.com/images/system/debian-12-standard_12.2-1_amd64.tar.zst; then
-            echo "Template downloaded"
-          else
-            echo "Using debootstrap fallback"
-            sudo debootstrap --variant=minbase bookworm rootfs http://deb.debian.org/debian
-          fi
+          mkdir -p rootfs
 
-      - name: Customize rootfs
+          echo "Creating Debian rootfs..."
+          sudo debootstrap --variant=minbase \
+            bookworm rootfs \
+            http://deb.debian.org/debian
+
+      - name: Customize container
         run: |
-          ROOTFS=workspace/root/rootfs
-          sudo mkdir -p $ROOTFS
+          ROOTFS="workspace/root/rootfs"
           
-          if [ ! -d "$ROOTFS/dev/pts" ]; then
-            sudo debootstrap --variant=minbase bookworm $ROOTFS http://deb.debian.org/debian
-          fi
-          
-          sudo chroot $ROOTFS /bin/bash -c "
+          sudo chroot "$ROOTFS" bash -c "
             export DEBIAN_FRONTEND=noninteractive
-            apt-get update
-            apt-get install -y ca-certificates curl wget procps openssh-server
+            apt-get update -qq
+            apt-get install -y --no-install-recommends \
+              ca-certificates curl wget procps \
+              openssh-server systemd-sysv
             apt-get clean
             rm -rf /var/lib/apt/lists/*
           "
-          echo "Rootfs customized"
+          echo "Container customized"
 
-      - name
+      - name: Create PVE template
+        run: |
+          cd workspace/root/rootfs
+          sudo tar --numeric-owner --one-file-system \
+            -cf - . | zstd -19 -o ../../../output/sing-box-ct.tar.zst
+
+      - name: Create metadata
+        run: |
+          cd workspace/output
+          cat > metadata.json << EOF
+          {
+            "name": "sing-box-subscribe",
+            "version": "1.0",
+            "type": "container",
+            "os": "debian-12",
+            "arch": "amd64"
+          }
+          EOF
+
+          sha256sum sing-box-ct.tar.zst | cut -d' ' -f1 > sing-box-ct.tar.zst.sha256
+          ls -lh .
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: pve-template-${{ github.sha }}
+          path: workspace/output/*
+          retention-days: 7
