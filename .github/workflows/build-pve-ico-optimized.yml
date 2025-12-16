@@ -1,4 +1,4 @@
-name: Build PVE CT Image
+name: Build OCI CT Image for PVE
 
 on:
   push:
@@ -7,70 +7,34 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-oci:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: Build Complete PVE CT
-        run: |
-          # 1. 安装依赖
-          sudo apt-get update
-          sudo apt-get install -y debootstrap zstd systemd-sysv
+      - name: Checkout
+        uses: actions/checkout@v4
 
-          # 2. 创建目录
-          OUTPUT_DIR="$GITHUB_WORKSPACE/workspace/output"
-          ROOTFS_DIR="$GITHUB_WORKSPACE/workspace/root/rootfs"
-          mkdir -p "$OUTPUT_DIR" "$ROOTFS_DIR"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-          # 3. 创建完整 Debian 系统（含 systemd）
-          cd "$GITHUB_WORKSPACE/workspace/root"
-          sudo debootstrap --variant=minbase --include=systemd,systemd-sysv bookworm rootfs http://deb.debian.org/debian
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-          # 4. 完整系统配置
-          sudo chroot "$ROOTFS_DIR" /bin/bash << 'CHROOT_EOF'
-            export DEBIAN_FRONTEND=noninteractive
-            
-            # 更新并安装基础包
-            apt-get update
-            apt-get install -y --no-install-recommends \\
-              ca-certificates curl wget procps openssh-server net-tools htop \\
-              tzdata locales cron sudo vim iputils-ping dnsutils
-            
-            # 配置 systemd
-            systemctl enable ssh
-            systemctl enable cron
-            
-            # 配置网络
-            echo "nameserver 8.8.8.8" > /etc/resolv.conf
-            
-            # 设置 root 密码
-            echo "root:changeme123" | chpasswd
-            
-            # 配置 SSH
-            sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
-            sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-            
-            # 设置时区 (UTC)
-            ln -sf /usr/share/zoneinfo/UTC /etc/localtime
-            dpkg-reconfigure -f noninteractive tzdata
-            
-            # 清理
-            apt-get clean
-            rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-          CHROOT_EOF
-
-          # 5. 创建 PVE CT 模板
-          cd "$ROOTFS_DIR"
-          sudo tar --numeric-owner --one-file-system --anchored \\
-            -cf - . | zstd -19 -o "$OUTPUT_DIR/sing-box-ct.tar.zst"
-
-          # 6. 验证和元数据
-          cd "$OUTPUT_DIR"
-          sha256sum sing-box-ct.tar.zst > sing-box-ct.tar.zst.sha256
-          
-          echo ""
-          echo "🎉 PVE CT TEMPLATE READY!"
-          echo "📁 Files:"
-          ls -lh .
-          echo ""
-          echo "✅ CONTAINS: systemd, sshd, cron, root:changeme123"
-          echo "🚀 PVE 命令: pct create 100 sing-box-ct.tar.zst --rootfs local-lvm:8"
+      - name: Build and push OCI image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
