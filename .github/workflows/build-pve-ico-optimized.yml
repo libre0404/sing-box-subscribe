@@ -10,18 +10,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Build PVE CT Template
+      - name: Complete PVE CT Build
         run: |
-          # 1. 创建目录
+          # 1. 安装所有依赖
+          sudo apt-get update
+          sudo apt-get install -y debootstrap zstd curl wget
+
+          # 2. 创建目录
           OUTPUT_DIR="$GITHUB_WORKSPACE/workspace/output"
           ROOTFS_DIR="$GITHUB_WORKSPACE/workspace/root/rootfs"
           mkdir -p "$OUTPUT_DIR" "$ROOTFS_DIR"
 
-          # 2. 创建基础系统
+          # 3. 创建基础系统
           cd "$GITHUB_WORKSPACE/workspace/root"
           sudo debootstrap --variant=minbase bookworm rootfs http://deb.debian.org/debian
 
-          # 3. 安装必要软件
+          # 4. 自定义容器
           sudo chroot "$ROOTFS_DIR" bash -c "
             export DEBIAN_FRONTEND=noninteractive
             apt-get update
@@ -30,17 +34,22 @@ jobs:
             rm -rf /var/lib/apt/lists/*
           "
 
-          # 4. 创建 tar.zst (绝对路径)
+          # 5. 创建压缩包
           cd "$ROOTFS_DIR"
           sudo tar --numeric-owner --one-file-system -cf - . | \
             zstd -19 -o "$OUTPUT_DIR/sing-box-ct.tar.zst"
 
-          # 5. 生成校验和
+          # 6. 生成校验和和显示结果
           cd "$OUTPUT_DIR"
           sha256sum sing-box-ct.tar.zst > sing-box-ct.tar.zst.sha256
-
-          # 6. 显示结果
-          echo "✅ SUCCESS!"
-          echo "Files created:"
+          
+          echo ""
+          echo "🎉 BUILD COMPLETED SUCCESSFULLY!"
+          echo "📁 Files in workspace/output/:"
           ls -lh .
-          echo "SHA256: $(cat sing-box-ct.tar.zst.sha256)"
+          echo ""
+          echo "🔐 SHA256 Checksum:"
+          cat sing-box-ct.tar.zst.sha256
+          echo ""
+          echo "🚀 PVE Import Command:"
+          echo "pct create 100 '$OUTPUT_DIR/sing-box-ct.tar.zst'"
