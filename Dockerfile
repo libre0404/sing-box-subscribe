@@ -38,3 +38,6 @@ EXPOSE 22 5000
 
 # OCI LXC 兼容：systemd 启动（自动运行您的 Python app）
 CMD ["/lib/systemd/systemd"]
+# 创建 systemd 服务（自动启动您的 Python app）
+COPY sing-box-subscribe.service /etc/systemd/system/
+RUN systemctl enable sing-box-subscribe.service
