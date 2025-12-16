@@ -1,0 +1,109 @@
+{
+  "name": "sing-box-subscribe",
+  "version": "1.0.0",
+  "type": "lxc",
+  "arch": "amd64",
+  "created": "2025-12-15T21:50:00Z",
+  "os": "debian",
+  "os-version": "12",
+  "os-type": "linux",
+  "os-codename": "bookworm",
+  "description": "Sing-Box Subscription Service Container Template for Proxmox VE",
+  "infopage": "https://github.com/libre0404/sing-box-subscribe",
+  "source": "https://github.com/libre0404/sing-box-subscribe/tree/sb-docker",
+  "fingerprint": "1735099600",
+  "size": 0,
+  "content-hash": "",
+  "security": {
+    "nesting": false,
+    "privileged": false,
+    "syscalls": {
+      "intercept": "allow",
+      "mount": "allow",
+      "setuid": "restrict",
+      "setgid": "restrict"
+    }
+  },
+  "features": {
+    "nesting": false,
+    "keyctl": false
+  },
+  "requirements": {
+    "min_cpu": 1,
+    "min_ram_gb": 512,
+    "min_disk_gb": 5
+  },
+  "default_config": {
+    "hostname": "sing-box-subscribe",
+    "cores": 2,
+    "memory": 1024,
+    "rootfs_size": 10,
+    "swap": 512,
+    "timezone": "Asia/Shanghai",
+    "searchdomain": "local",
+    "nameserver": "8.8.8.8 8.8.4.4",
+    "network": {
+      "eth0": {
+        "type": "veth",
+        "hwaddr": "02:00:00:00:00:00",
+        "ipv4": "dhcp",
+        "ipv6": "auto"
+      }
+    }
+  },
+  "packages": [
+    "ca-certificates",
+    "curl",
+    "wget",
+    "openssh-server",
+    "openssh-client",
+    "docker.io",
+    "python3",
+    "python3-pip",
+    "git",
+    "vim",
+    "htop",
+    "net-tools"
+  ],
+  "startup_script": "/usr/local/bin/init-container.sh",
+  "post_creation_hook": "/usr/local/bin/init-container.sh",
+  "compatible_versions": {
+    "pve_min": "7.0",
+    "pve_max": "8.x",
+    "lxc_min": "5.0"
+  },
+  "services": [
+    {
+      "name": "ssh",
+      "enabled": true,
+      "description": "OpenSSH Server"
+    },
+    {
+      "name": "docker",
+      "enabled": true,
+      "description": "Docker Container Runtime"
+    }
+  ],
+  "ports": [
+    {
+      "port": 22,
+      "protocol": "tcp",
+      "description": "SSH"
+    },
+    {
+      "port": 8080,
+      "protocol": "tcp",
+      "description": "Sing-Box Web UI (示例)"
+    }
+  ],
+  "environment": {
+    "TZ": "Asia/Shanghai",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8"
+  },
+  "build_info": {
+    "builder": "GitHub Actions",
+    "base_image": "Debian 12 Bookworm",
+    "timestamp": "2025-12-15T21:50:00Z"
+  }
+}
