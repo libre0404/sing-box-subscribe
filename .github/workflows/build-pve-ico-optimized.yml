@@ -1,0 +1,318 @@
+# GitHub Actions 工作流：构建 PVE CT 可用的 ICO 镜像（优化版）
+name: Build PVE CT ICO Image
+
+on:
+  push:
+    branches:
+      - sb-docker
+    paths:
+      - 'Dockerfile'
+      - '.github/workflows/build-pve-ico.yml'
+  pull_request:
+    branches:
+      - sb-docker
+  # 允许手动触发
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type (full/quick)'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - quick
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  DOCKERFILE_PATH: ./Dockerfile
+  ICO_VERSION: 1.0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up QEMU for multi-architecture
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (Tags and Labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ env.DOCKERFILE_PATH }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  create-ico-image:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/sb-docker'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            qemu-utils \
+            debootstrap \
+            curl \
+            wget \
+            jq \
+            zstd
+
+      - name: Create workspace
+        id: workspace
+        run: |
+          WORKSPACE_ROOT=${{ github.workspace }}/workspace
+          mkdir -p "$WORKSPACE_ROOT"/{root,output}
+          echo "workspace_dir=$WORKSPACE_ROOT" >> $GITHUB_OUTPUT
+          echo "Workspace created at: $(pwd)"
+
+      - name: Download base ICO image
+        id: download
+        run: |
+          ROOT_DIR="${{ github.workspace }}/workspace/root"
+          cd "$ROOT_DIR"
+          
+          echo "Downloading Debian 12 base image..."
+          wget -q --timeout=300 --tries=3 -O debian-12-base.tar.zst \
+            https://download.proxmox.com/images/system/debian-12-standard_12.2-1_amd64.tar.zst || \
+            wget -q --timeout=300 --tries=3 -O debian-12-base.tar.zst \
+            http://download.proxmox.com/images/system/debian-12-standard_12.2-1_amd64.tar.zst
+          
+          if [ -f debian-12-base.tar.zst ]; then
+            echo "✅ Base image downloaded successfully"
+            echo "status=downloaded" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Download failed, will use debootstrap instead"
+            echo "status=debootstrap" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Prepare container rootfs
+        id: rootfs
+        run: |
+          ROOT_DIR="${{ github.workspace }}/workspace/root"
+          ROOTFS="$ROOT_DIR/rootfs"
+          mkdir -p "$ROOTFS"
+          
+          if [ "${{ steps.download.outputs.status }}" == "debootstrap" ]; then
+            echo "Creating rootfs with debootstrap..."
+            sudo debootstrap --variant=minbase --no-check-gpg \
+              bookworm "$ROOTFS" http://deb.debian.org/debian
+          else
+            echo "Extracting base image..."
+            sudo tar -xf "$ROOT_DIR/debian-12-base.tar.zst" -C "$ROOTFS"
+          fi
+          
+          echo "rootfs_path=$ROOTFS" >> $GITHUB_OUTPUT
+          echo "✅ Rootfs prepared"
+          sudo ls -la "$ROOTFS" | head -10
+
+      - name: Customize container
+        run: |
+          ROOTFS="${{ steps.rootfs.outputs.rootfs_path }}"
+          
+          if [ -f .github/scripts/customize-container.sh ]; then
+            echo "Running customization script..."
+            chmod +x .github/scripts/customize-container.sh
+            sudo bash .github/scripts/customize-container.sh "$ROOTFS"
+          else
+            echo "No customize script found, using defaults"
+            sudo chroot "$ROOTFS" bash -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update -qq
+              apt-get install -y --no-install-recommends \
+                ca-certificates \
+                curl \
+                wget \
+                procps \
+                systemd \
+                openssh-server
+              apt-get clean
+              rm -rf /var/lib/apt/lists/*
+              '
+          fi
+          
+          echo "✅ Container customization completed"
+
+      - name: Create TAR archive for PVE
+        id: archive
+        run: |
+          OUTPUT_DIR="${{ github.workspace }}/workspace/output"
+          ROOTFS="${{ steps.rootfs.outputs.rootfs_path }}"
+          FILENAME="sing-box-subscribe-ct"
+          
+          echo "Creating TAR.ZST archive for PVE CT..."
+          cd "$ROOTFS"
+          
+          if command -v zstd >/dev/null; then
+            # 优先使用 zstd
+            sudo tar --numeric-owner --xattrs -cf - . 2>/dev/null | \
+              zstd -10 -o "$OUTPUT_DIR/${FILENAME}.tar.zst"
+            ARCHIVE_FILE="$OUTPUT_DIR/${FILENAME}.tar.zst"
+          else
+            echo "⚠️ zstd not found, using gzip as fallback"
+            # 使用 gzip 备选方案
+            sudo tar --numeric-owner -czf "$OUTPUT_DIR/${FILENAME}.tar.gz" .
+            ARCHIVE_FILE="$OUTPUT_DIR/${FILENAME}.tar.gz"
+          fi
+          
+          echo "archive_path=$ARCHIVE_FILE" >> $GITHUB_OUTPUT
+          echo "✅ TAR archive created successfully: $(basename "$ARCHIVE_FILE")"
+          ls -lh "$OUTPUT_DIR/"
+
+      - name: Create metadata file
+        id: metadata
+        run: |
+          OUTPUT_DIR="${{ github.workspace }}/workspace/output"
+          METADATA_FILE="$OUTPUT_DIR/metadata.json"
+          TAR_FILE="${{ steps.archive.outputs.archive_path }}"
+          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          CONTENT_HASH=$(sha256sum "$TAR_FILE" | cut -d' ' -f1)
+          FILE_SIZE=$(du -b "$TAR_FILE" | cut -f1)
+          FINGERPRINT="$(date -u +%Y%m%d%H%M%S)"
+          
+          # 修正了 YAML 结构，确保 EOF 顶格
+          cat > "$METADATA_FILE" << EOF
+{
+  "name": "sing-box-subscribe",
+  "version": "${{ env.ICO_VERSION }}",
+  "type": "lxc",
+  "arch": "amd64",
+  "created": "$BUILD_TIME",
+  "os": "debian",
+  "os-version": "12",
+  "description": "Sing-Box Subscription Container for Proxmox VE",
+  "source": "https://github.com/${{ github.repository }}/tree/sb-docker",
+  "content-hash": "$CONTENT_HASH",
+  "fingerprint": "$FINGERPRINT",
+  "size": $FILE_SIZE,
+  "build-info": {
+    "builder": "GitHub Actions",
+    "base-image": "Debian 12 Bookworm",
+    "timestamp": "$BUILD_TIME",
+    "commit": "${{ github.sha }}",
+    "branch": "${{ github.ref_name }}"
+  }
+}
+EOF
+          
+          echo "metadata_path=$METADATA_FILE" >> $GITHUB_OUTPUT
+          echo "✅ Metadata file created"
+          cat "$METADATA_FILE"
+
+      - name: Create checksums
+        run: |
+          OUTPUT_DIR="${{ github.workspace }}/workspace/output"
+          ARCHIVE_PATH="${{ steps.archive.outputs.archive_path }}"
+          cd "$OUTPUT_DIR"
+          
+          echo "Generating checksums..."
+          
+          FILENAME_BASE="$(basename "$ARCHIVE_PATH" | cut -d'.' -f1)"
+          
+          for file in "$FILENAME_BASE".tar.*; do
+            if [ -f "$file" ]; then
+              sha256sum "$file" > "$file.sha256"
+              echo "✅ Checksum created for $file"
+              cat "$file.sha256"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            ${{ steps.archive.outputs.archive_path }}
+            ${{ steps.archive.outputs.archive_path }}.sha256
+            ${{ steps.metadata.outputs.metadata_path }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: pve-ico-images-${{ github.sha }}
+          path: ${{ github.workspace }}/workspace/output/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Generate build summary
+        if: always()
+        run: |
+          OUTPUT_DIR="${{ github.workspace }}/workspace/output"
+          
+          echo "## ✅ PVE ICO Image Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Date:** $(date -u +%Y-%m-%d\ %H:%M:%S\ UTC)" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Generated Files:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -d "$OUTPUT_DIR" ]; then
+            ls -lh "$OUTPUT_DIR/" | awk 'NR>1 {print "- **" $9 "**: " $5}' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### File Integrity (SHA256):" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            for sha_file in "$OUTPUT_DIR"/*.sha256; do
+              if [ -f "$sha_file" ]; then
+                echo "- \`$(basename $sha_file)\`: \`$(cat $sha_file)\`" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          fi
+
+      - name: Print status
+        run: |
+          echo "✅ PVE CT ICO image build completed successfully"
+          echo "📦 Output directory: ${{ github.workspace }}/workspace/output/"
+          ls -lh ${{ github.workspace }}/workspace/output/
+          echo ""
+          echo "📝 Build info:"
+          echo "  - Container Type: LXC (TAR.ZST/TAR.GZ)"
+          echo "  - Ready to import into Proxmox VE"
+          echo "  - All files available in Artifacts for 30 days"
