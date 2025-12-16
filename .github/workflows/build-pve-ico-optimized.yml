@@ -1,0 +1,58 @@
+name: Build PVE CT ICO Image
+
+on:
+  push:
+    branches:
+      - sb-docker
+  workflow_dispatch:
+
+jobs:
+  create-pve-ct:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/sb-docker'
+
+    steps:
+      - name: Checkout
+        run: git clone https://github.com/${{ github.repository }} .
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debootstrap wget curl jq zstd
+
+      - name: Create workspace
+        run: |
+          mkdir -p workspace/{root,output}
+          echo "Workspace ready"
+
+      - name: Download Proxmox template
+        run: |
+          cd workspace/root
+          echo "Downloading Debian template..."
+          if wget -q --timeout=120 -O debian.tar.zst \
+            https://download.proxmox.com/images/system/debian-12-standard_12.2-1_amd64.tar.zst; then
+            echo "Template downloaded"
+          else
+            echo "Using debootstrap fallback"
+            sudo debootstrap --variant=minbase bookworm rootfs http://deb.debian.org/debian
+          fi
+
+      - name: Customize rootfs
+        run: |
+          ROOTFS=workspace/root/rootfs
+          sudo mkdir -p $ROOTFS
+          
+          if [ ! -d "$ROOTFS/dev/pts" ]; then
+            sudo debootstrap --variant=minbase bookworm $ROOTFS http://deb.debian.org/debian
+          fi
+          
+          sudo chroot $ROOTFS /bin/bash -c "
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update
+            apt-get install -y ca-certificates curl wget procps openssh-server
+            apt-get clean
+            rm -rf /var/lib/apt/lists/*
+          "
+          echo "Rootfs customized"
+
+      - name
