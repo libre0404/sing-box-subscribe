@@ -1,4 +1,3 @@
-# GitHub Actions 工作流：构建 PVE CT 可用的 ICO 镜像（优化版）
 name: Build PVE CT ICO Image
 
 on:
@@ -11,7 +10,6 @@ on:
   pull_request:
     branches:
       - sb-docker
-  # 允许手动触发
   workflow_dispatch:
     inputs:
       build_type:
@@ -168,7 +166,7 @@ jobs:
                 openssh-server
               apt-get clean
               rm -rf /var/lib/apt/lists/*
-              '
+            '
           fi
           
           echo "✅ Container customization completed"
@@ -176,143 +174,4 @@ jobs:
       - name: Create TAR archive for PVE
         id: archive
         run: |
-          OUTPUT_DIR="${{ github.workspace }}/workspace/output"
-          ROOTFS="${{ steps.rootfs.outputs.rootfs_path }}"
-          FILENAME="sing-box-subscribe-ct"
-          
-          echo "Creating TAR.ZST archive for PVE CT..."
-          cd "$ROOTFS"
-          
-          if command -v zstd >/dev/null; then
-            # 优先使用 zstd
-            sudo tar --numeric-owner --xattrs -cf - . 2>/dev/null | \
-              zstd -10 -o "$OUTPUT_DIR/${FILENAME}.tar.zst"
-            ARCHIVE_FILE="$OUTPUT_DIR/${FILENAME}.tar.zst"
-          else
-            echo "⚠️ zstd not found, using gzip as fallback"
-            # 使用 gzip 备选方案
-            sudo tar --numeric-owner -czf "$OUTPUT_DIR/${FILENAME}.tar.gz" .
-            ARCHIVE_FILE="$OUTPUT_DIR/${FILENAME}.tar.gz"
-          fi
-          
-          echo "archive_path=$ARCHIVE_FILE" >> $GITHUB_OUTPUT
-          echo "✅ TAR archive created successfully: $(basename "$ARCHIVE_FILE")"
-          ls -lh "$OUTPUT_DIR/"
-
-      - name: Create metadata file
-        id: metadata
-        run: |
-          OUTPUT_DIR="${{ github.workspace }}/workspace/output"
-          METADATA_FILE="$OUTPUT_DIR/metadata.json"
-          TAR_FILE="${{ steps.archive.outputs.archive_path }}"
-          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-          CONTENT_HASH=$(sha256sum "$TAR_FILE" | cut -d' ' -f1)
-          FILE_SIZE=$(du -b "$TAR_FILE" | cut -f1)
-          FINGERPRINT="$(date -u +%Y%m%d%H%M%S)"
-          
-          # 修正了 YAML 结构，确保 EOF 顶格
-          cat > "$METADATA_FILE" << EOF
-{
-  "name": "sing-box-subscribe",
-  "version": "${{ env.ICO_VERSION }}",
-  "type": "lxc",
-  "arch": "amd64",
-  "created": "$BUILD_TIME",
-  "os": "debian",
-  "os-version": "12",
-  "description": "Sing-Box Subscription Container for Proxmox VE",
-  "source": "https://github.com/${{ github.repository }}/tree/sb-docker",
-  "content-hash": "$CONTENT_HASH",
-  "fingerprint": "$FINGERPRINT",
-  "size": $FILE_SIZE,
-  "build-info": {
-    "builder": "GitHub Actions",
-    "base-image": "Debian 12 Bookworm",
-    "timestamp": "$BUILD_TIME",
-    "commit": "${{ github.sha }}",
-    "branch": "${{ github.ref_name }}"
-  }
-}
-EOF
-          
-          echo "metadata_path=$METADATA_FILE" >> $GITHUB_OUTPUT
-          echo "✅ Metadata file created"
-          cat "$METADATA_FILE"
-
-      - name: Create checksums
-        run: |
-          OUTPUT_DIR="${{ github.workspace }}/workspace/output"
-          ARCHIVE_PATH="${{ steps.archive.outputs.archive_path }}"
-          cd "$OUTPUT_DIR"
-          
-          echo "Generating checksums..."
-          
-          FILENAME_BASE="$(basename "$ARCHIVE_PATH" | cut -d'.' -f1)"
-          
-          for file in "$FILENAME_BASE".tar.*; do
-            if [ -f "$file" ]; then
-              sha256sum "$file" > "$file.sha256"
-              echo "✅ Checksum created for $file"
-              cat "$file.sha256"
-            fi
-          done
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            ${{ steps.archive.outputs.archive_path }}
-            ${{ steps.archive.outputs.archive_path }}.sha256
-            ${{ steps.metadata.outputs.metadata_path }}
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: pve-ico-images-${{ github.sha }}
-          path: ${{ github.workspace }}/workspace/output/
-          retention-days: 30
-          if-no-files-found: warn
-
-      - name: Generate build summary
-        if: always()
-        run: |
-          OUTPUT_DIR="${{ github.workspace }}/workspace/output"
-          
-          echo "## ✅ PVE ICO Image Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Build Date:** $(date -u +%Y-%m-%d\ %H:%M:%S\ UTC)" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Generated Files:" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [ -d "$OUTPUT_DIR" ]; then
-            ls -lh "$OUTPUT_DIR/" | awk 'NR>1 {print "- **" $9 "**: " $5}' >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### File Integrity (SHA256):" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            
-            for sha_file in "$OUTPUT_DIR"/*.sha256; do
-              if [ -f "$sha_file" ]; then
-                echo "- \`$(basename $sha_file)\`: \`$(cat $sha_file)\`" >> $GITHUB_STEP_SUMMARY
-              fi
-            done
-          fi
-
-      - name: Print status
-        run: |
-          echo "✅ PVE CT ICO image build completed successfully"
-          echo "📦 Output directory: ${{ github.workspace }}/workspace/output/"
-          ls -lh ${{ github.workspace }}/workspace/output/
-          echo ""
-          echo "📝 Build info:"
-          echo "  - Container Type: LXC (TAR.ZST/TAR.GZ)"
-          echo "  - Ready to import into Proxmox VE"
-          echo "  - All files available in Artifacts for 30 days"
+          OUTPUT_DIR="${{ github.workspace }}/
