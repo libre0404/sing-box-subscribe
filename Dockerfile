@@ -41,3 +41,10 @@ RUN systemctl enable ssh.service cron.service sing-box-subscribe.service
 EXPOSE 22 5000
 
 # OCI
+# 添加 entrypoint（运行时配置）
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/lib/systemd/systemd"]
+
