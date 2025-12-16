@@ -24,58 +24,36 @@ jobs:
         run: |
           mkdir -p workspace/{root,output}
           cd workspace
-          echo "Workspace created"
 
       - name: Prepare rootfs
         run: |
           cd workspace/root
-          mkdir -p rootfs
-
-          echo "Creating Debian rootfs..."
-          sudo debootstrap --variant=minbase \
-            bookworm rootfs \
-            http://deb.debian.org/debian
+          mkdir rootfs
+          sudo debootstrap --variant=minbase bookworm rootfs http://deb.debian.org/debian
 
       - name: Customize container
         run: |
-          ROOTFS="workspace/root/rootfs"
-          
+          ROOTFS=workspace/root/rootfs
           sudo chroot "$ROOTFS" bash -c "
             export DEBIAN_FRONTEND=noninteractive
             apt-get update -qq
-            apt-get install -y --no-install-recommends \
-              ca-certificates curl wget procps \
-              openssh-server systemd-sysv
+            apt-get install -y ca-certificates curl wget procps openssh-server
             apt-get clean
             rm -rf /var/lib/apt/lists/*
           "
-          echo "Container customized"
 
       - name: Create PVE template
         run: |
           cd workspace/root/rootfs
-          sudo tar --numeric-owner --one-file-system \
-            -cf - . | zstd -19 -o ../../../output/sing-box-ct.tar.zst
-
-      - name: Create metadata
-        run: |
+          sudo tar --numeric-owner --one-file-system -cf - . | \
+            zstd -19 -o ../../../output/sing-box-ct.tar.zst
           cd workspace/output
-          cat > metadata.json << EOF
-          {
-            "name": "sing-box-subscribe",
-            "version": "1.0",
-            "type": "container",
-            "os": "debian-12",
-            "arch": "amd64"
-          }
-          EOF
-
-          sha256sum sing-box-ct.tar.zst | cut -d' ' -f1 > sing-box-ct.tar.zst.sha256
+          sha256sum sing-box-ct.tar.zst > sing-box-ct.tar.zst.sha256
           ls -lh .
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: pve-template-${{ github.sha }}
-          path: workspace/output/*
-          retention-days: 7
+      - name: Show results
+        run: |
+          echo "## Build Complete ✅"
+          echo "| File | Size |"
+          echo "|------|------|"
+          ls -lh workspace/output/ | awk 'NR>1 {print "|" $9 "|"$5"|" }'
