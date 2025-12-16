@@ -1,36 +1,40 @@
-FROM debian:bookworm-slim
+FROM python:3.11-slim
 
 # 避免交互式配置
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-# 创建临时 resolv.conf
-RUN echo "nameserver 8.8.8.8" > /tmp/resolv.conf \
-    && echo "nameserver 8.8.4.4" >> /tmp/resolv.conf
-
-# 安装完整系统服务
+# 安装系统依赖 + Python 环境
 RUN apt-get update && apt-get install -y --no-install-recommends \
     systemd systemd-sysv openssh-server curl wget procps net-tools \
     ca-certificates tzdata cron htop iputils-ping dnsutils sudo vim \
     && rm -rf /var/lib/apt/lists/*
 
-# 配置 SSH (允许 root 登录)
+# 复制应用代码
+COPY . /sing-box-subscribe
+WORKDIR /sing-box-subscribe
+
+# 安装 Python 依赖
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# 配置 SSH (root 登录)
 RUN sed -i 's/#*PermitRootLogin .*/PermitRootLogin yes/' /etc/ssh/sshd_config \
     && sed -i 's/#*PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config \
     && echo "root:changeme123" | chpasswd \
     && mkdir -p /var/run/sshd
 
-# 时区配置
+# 时区 + DNS
 RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime \
-    && echo "UTC" > /etc/timezone
+    && echo "UTC" > /etc/timezone \
+    && echo "nameserver 8.8.8.8" > /etc/resolv.conf
 
 # 启用服务
 RUN systemctl enable ssh cron
 
-# 清理临时文件
-RUN rm -rf /tmp/resolv.conf /var/tmp/* /tmp/*
+# 暴露端口
+EXPOSE 22 5000
 
-# 暴露 SSH 端口
-EXPOSE 22
-
-# OCI LXC 兼容：systemd 作为 PID 1
+# OCI LXC 兼容：systemd 启动（自动运行您的 Python app）
 CMD ["/lib/systemd/systemd"]
