@@ -1,3 +1,6 @@
+感谢作者的辛苦工作，本人只是在他的作品上，修改生成了Proxmox 9.2 Ct 可用的 OCI 模板，功劳微乎其微，有幸对你有点帮助，感谢请送给原作者。
+
+
 # 操作说明去看[英文文档](https://github.com/Toperlock/sing-box-subscribe/blob/main/instructions/README.md)，中文文档操作说明不再提供
 
 # 免责声明：sing-box-subscribe.vercel.app域名目前已被其他人占用，与本项目无关。后果自负
