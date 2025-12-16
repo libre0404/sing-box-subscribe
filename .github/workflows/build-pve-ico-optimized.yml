@@ -10,46 +10,67 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Complete PVE CT Build
+      - name: Build Complete PVE CT
         run: |
-          # 1. 安装所有依赖
+          # 1. 安装依赖
           sudo apt-get update
-          sudo apt-get install -y debootstrap zstd curl wget
+          sudo apt-get install -y debootstrap zstd systemd-sysv
 
           # 2. 创建目录
           OUTPUT_DIR="$GITHUB_WORKSPACE/workspace/output"
           ROOTFS_DIR="$GITHUB_WORKSPACE/workspace/root/rootfs"
           mkdir -p "$OUTPUT_DIR" "$ROOTFS_DIR"
 
-          # 3. 创建基础系统
+          # 3. 创建完整 Debian 系统（含 systemd）
           cd "$GITHUB_WORKSPACE/workspace/root"
-          sudo debootstrap --variant=minbase bookworm rootfs http://deb.debian.org/debian
+          sudo debootstrap --variant=minbase --include=systemd,systemd-sysv bookworm rootfs http://deb.debian.org/debian
 
-          # 4. 自定义容器
-          sudo chroot "$ROOTFS_DIR" bash -c "
+          # 4. 完整系统配置
+          sudo chroot "$ROOTFS_DIR" /bin/bash << 'CHROOT_EOF'
             export DEBIAN_FRONTEND=noninteractive
+            
+            # 更新并安装基础包
             apt-get update
-            apt-get install -y ca-certificates curl wget procps openssh-server
+            apt-get install -y --no-install-recommends \\
+              ca-certificates curl wget procps openssh-server net-tools htop \\
+              tzdata locales cron sudo vim iputils-ping dnsutils
+            
+            # 配置 systemd
+            systemctl enable ssh
+            systemctl enable cron
+            
+            # 配置网络
+            echo "nameserver 8.8.8.8" > /etc/resolv.conf
+            
+            # 设置 root 密码
+            echo "root:changeme123" | chpasswd
+            
+            # 配置 SSH
+            sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+            sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+            
+            # 设置时区 (UTC)
+            ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+            dpkg-reconfigure -f noninteractive tzdata
+            
+            # 清理
             apt-get clean
-            rm -rf /var/lib/apt/lists/*
-          "
+            rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+          CHROOT_EOF
 
-          # 5. 创建压缩包
+          # 5. 创建 PVE CT 模板
           cd "$ROOTFS_DIR"
-          sudo tar --numeric-owner --one-file-system -cf - . | \
-            zstd -19 -o "$OUTPUT_DIR/sing-box-ct.tar.zst"
+          sudo tar --numeric-owner --one-file-system --anchored \\
+            -cf - . | zstd -19 -o "$OUTPUT_DIR/sing-box-ct.tar.zst"
 
-          # 6. 生成校验和和显示结果
+          # 6. 验证和元数据
           cd "$OUTPUT_DIR"
           sha256sum sing-box-ct.tar.zst > sing-box-ct.tar.zst.sha256
           
           echo ""
-          echo "🎉 BUILD COMPLETED SUCCESSFULLY!"
-          echo "📁 Files in workspace/output/:"
+          echo "🎉 PVE CT TEMPLATE READY!"
+          echo "📁 Files:"
           ls -lh .
           echo ""
-          echo "🔐 SHA256 Checksum:"
-          cat sing-box-ct.tar.zst.sha256
-          echo ""
-          echo "🚀 PVE Import Command:"
-          echo "pct create 100 '$OUTPUT_DIR/sing-box-ct.tar.zst'"
+          echo "✅ CONTAINS: systemd, sshd, cron, root:changeme123"
+          echo "🚀 PVE 命令: pct create 100 sing-box-ct.tar.zst --rootfs local-lvm:8"
